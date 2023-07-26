@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <title>Vec</title>
+    <script src="twgl.min.js"></script>
+    <script src="./libs.js"></script>
+    <style>
+        
+        * {
+            margin:0;
+            padding:0;
+            font-family:Helvetica,sans-serif;
+        }
+        
+        body {
+            background:#888;
+            width:100%;
+            height:100vh;
+            -webkit-user-select:none;
+            -webkit-user-drag:none;
+            overflow:hidden;
+        }
+        
+        canvas {
+            position:absolute;
+            top:0;
+            left:0;
+            z-index:0;
+            vertical-align:top;
+        }
+        
+        #contextmenu {
+            display:none;
+            overflow:hidden;
+            white-space:nowrap;
+            color:#222;
+            background:#EEE;
+            font-size:12px;
+            letter-spacing:0.075em;
+            line-height:24px;
+            position:fixed;
+            z-index:1024;
+            left:0px;
+            top:0px;
+            padding:8px 12px;
+            border-radius:4px;
+            box-shadow:6px 6px 12px rgba(0,0,0,0.1);
+            cursor:pointer;
+        }
+        
+        #contextmenu.appear {
+            display:inline-block;
+        }
+        
+        #footer {
+            z-index:1024;
+            position:fixed;
+            left:0;
+            bottom:0;
+            width:100%;
+            height:32px;
+            background:rgb(64,64,64);
+            margin:0;
+            padding:0;
+            -webkit-user-select:none;
+            font-size:14px;
+            font-family:Helvetica,sans-serif;
+            letter-spacing:0.025em;
+            color:#CCC;
+        }
+        
+        #footer form {
+            display:inline-block;
+            vertical-align:top;
+        }
+        
+        #footer div.slider {
+            display:inline-block;
+            vertical-align:top;
+            width:128px;
+            margin:10px 16px;
+            height:12px;
+            background:#CCC;
+            cursor:pointer;
+        }
+        
+        #footer div.slider div.bar {
+            width:100%;
+            height:100%;
+            background:#FFF;
+        }
+        
+        #footer label {
+            padding:0 0 0 12px;
+            margin-left:8px;
+            font-size:14px;
+            line-height:32px;
+            height:32px;
+            display:inline-block;
+            cursor:pointer;
+            position:relative;
+        }
+        
+        #footer input[type="radio"] {
+            display:none;
+        }
+        
+        #footer input[type="radio"]:checked + label:after {
+            content:'';
+            position:absolute;
+            width:8px;
+            height:8px;
+            top:12px;
+            left:0px;
+            background-color:#CCC;
+            border-radius:50%;
+        }
+        
+        #footer label:before {
+            content:'';
+            position:absolute;
+            width:4px;
+            height:4px;
+            top:14px;
+            left:2px;
+            background-color:#CCC;
+            border-radius:50%;
+        }
+        
+        #footer div#info {
+            position:absolute;
+            top:0;
+            right:0;
+            padding:0 16px;
+            font-size:14px;
+            line-height:32px;
+            height:32px;
+            display:inline-block;
+            cursor:pointer;
+            color:#CCC;
+            background:#222;
+        }
+        
+        div#panel {
+            user-select:none;
+            -moz-user-select:none;
+            -webkit-user-select:none;
+            -ms-user-select:none;
+            user-select:none;
+            position:absolute;
+            bottom:48px;
+            right:16px;
+            width:290px;
+            font-size:12px;
+            line-height:16px;
+            padding:6px 8px;
+            color:#CCC;
+            background:#222;
+            cursor:default;
+        }
+        
+        div#panel ul {
+            list-style:none;
+        }
+        
+        div#loading {
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        @keyframes spinner {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        div#loading::before {
+            content:"";
+            position:absolute;
+            top:50%;
+            left:50%;
+            width:96px;
+            height:96px;
+            margin-top:-54px;
+            margin-left:-54px;
+            border-radius:50%;
+            border:4px solid rgba(255,255,255,0.2);
+            border-top-color:transparent;
+            animation: spinner 1s linear infinite;
+        }
+    
+    </style>
+</head>
+<body>
+    <script>
+        
+        // https://github.com/KoryNunn/crel
+        (e=>{const t="function",n="isNode",o=(e,t)=>typeof e===t,r=(e,t)=>{null!==t&&(Array.isArray(t)?t.map(t=>r(e,t)):(i[n](t)||(t=document.createTextNode(t)),e.appendChild(t)))};function i(e,a){let d,f,l=arguments,c=1;if(e=i.isElement(e)?e:document.createElement(e),o(a,"object")&&!i[n](a)&&!Array.isArray(a))for(d in c++,a)f=a[d],o(d=i.attrMap[d]||d,t)?d(e,f):o(f,t)?e[d]=f:e.setAttribute(d,f);for(;c<l.length;c++)r(e,l[c]);return e}i.attrMap={},i.isElement=(e=>e instanceof Element),i[n]=(e=>e instanceof Node),i.proxy=new Proxy(i,{get:(e,t)=>(!(t in i)&&(i[t]=i.bind(null,t)),i[t])}),e(i,t)})((e,t)=>{"object"==typeof exports?module.exports=e:typeof define===t&&define.amd?define(()=>e):this.crel=e});
+            
+        const loading = crel("div",{"id":"loading"});
+        crel(document.body,loading);
+        
+        const SHIFT = 6;
+        
+        const IMAGE = new Image();
+        const DEFAULT_URL = "./vec.png";
+            
+        class U8 {
+            constructor(len) {
+                this.length = len;
+                this.bytes = Module._malloc(len);
+                this.buffer = new Uint8Array(Module.HEAPU8.buffer,this.bytes,len);
+                //console.log(this.bytes);
+            }
+            cleanup() {
+                Module._free(this.bytes);
+                this.buffer = null;
+            }
+        };
+        
+        class F32 {
+            constructor(len) {
+                this.length = len;
+                this.bytes = Module._malloc(len*4);
+                this.buffer = new Float32Array(Module.HEAPF32.buffer,this.bytes,len);
+                //console.log(this.bytes);
+            }
+            cleanup() {
+                Module._free(this.bytes);
+                this.buffer = null;
+            }
+        };
+        
+        const Info = {
+            W:1920*2,
+            H:1080*2
+        } 
+        
+        const PNG_HEADER_SIZE = 58;
+        
+        const X = [];
+        const Y = [];
+
+        const CLIP = function(value,max) { return (max<=value)?max:value; }
+        const CLAMP = function(min,value,max) { return (value<=min)?min:CLIP(value,max); }
+        
+        const contextmenu = crel("div",{"id":"contextmenu"});
+        const menuitem = crel("p");
+        contextmenu.appendChild(menuitem);
+        document.body.appendChild(contextmenu);
+        
+        const hitTest = (x,y,bounds)=>{
+            if((bounds.left<=x&&x<=(bounds.right-1)&&bounds.top<=y&&y<=(bounds.bottom)-1)) {
+                return true;
+            }
+            return false;
+        }
+            
+        window.addEventListener("dragover",(e)=>{
+            e.preventDefault();
+            e.stopPropagation();
+        });
+            
+        const initialize = (arrayBuffer)=>{
+                        
+            document.body.removeChild(loading);
+            
+            const decodePNG = Module.cwrap("decodePNG","number",["number","number","number","number","number","number"]);
+            
+            const PNG_HEADER_SIZE = 58;
+            const PNG = new U8(PNG_HEADER_SIZE+((Info.W*Info.H)<<2));
+            const bytes = new Uint8Array(arrayBuffer);
+            if(bytes.length<=PNG.length) {
+                const PIXEL = new U8((Info.W*Info.H)<<2);
+                PNG.buffer.set(bytes);
+                if(decodePNG(PIXEL.buffer.byteOffset,Info.W,Info.H,PNG.buffer.byteOffset,bytes.length)) {
+                    
+                    const buffer = PIXEL.buffer;
+                                        
+                    const w = Info.W>>SHIFT;
+                    const h = Info.W>>SHIFT;
+                    
+                    const o = 1<<(SHIFT-1);
+                                        
+                    for(var i=0; i<w; i++) {
+                        for(var j=0; j<h; j++) {
+                            
+                            const offset = (o+(i<<SHIFT))*Info.W+(o+(j<<SHIFT));
+                            
+                            const x = (((buffer[offset*4+3]<<8)|(buffer[offset*4+2]))-0x7FFF)>>3;
+                            const y = (((buffer[offset*4+1]<<8)|(buffer[offset*4+0]))-0x7FFF)>>3;
+                                                        
+                            X[i*(Info.W>>SHIFT)+j] = x;
+                            Y[i*(Info.W>>SHIFT)+j] = y;
+                        }
+                    }
+                }
+            }
+            
+            const canvas = crel("canvas",{width:Info.W,height:Info.H});
+            crel(document.body,canvas);
+            
+            const context = canvas.getContext("2d");
+            
+            const Type = {
+                PNG:0,
+                VEC:1
+            };
+            
+            const input = [
+                crel("input",{"id":"PNG","type":"radio","name":"mode"}),
+                crel("input",{"id":"VEC","type":"radio","name":"mode","checked":true})
+            ];
+            
+            input[Type.PNG].onchange = (e)=>{
+                context.clearRect(0,0,Info.W,Info.H);
+                context.drawImage(IMAGE,0,0,Info.W,Info.H);
+            };
+            
+            input[Type.VEC].onchange = (e)=>{
+                
+                context.fillStyle = "#000";
+                context.fillRect(0,0,Info.W,Info.H);
+                
+                const w = Info.W>>SHIFT;
+                const h = Info.W>>SHIFT;
+                
+                const o = 1<<(SHIFT-1);
+                
+                context.lineWidth = 2.5;
+                context.strokeStyle = "#FFF";
+
+                for(var i=0; i<h; i++) {
+                    for(var j=0; j<w; j++) {
+                        
+                        context.moveTo(o+(j<<SHIFT),o+(i<<SHIFT));
+                        context.lineTo(o+(j<<SHIFT)-X[i*w+j],o+(i<<SHIFT)-Y[i*w+j])
+
+                    }
+                }
+                
+                context.stroke();
+
+            };
+            input[Type.VEC].onchange();
+            
+            const footer = crel("div",{"id":"footer"});
+            crel(document.body,
+                crel(footer,
+                    crel("form",
+                        input[Type.PNG],
+                        crel("label",{"for":"PNG"},"PNG"),
+                        input[Type.VEC],
+                        crel("label",{"for":"VEC"},"VEC")
+                    )
+                )
+            );
+            
+            const stage = new class {
+                constructor() {
+                    this.width = 0;
+                    this.height = 0;
+                }
+            };
+            
+            const FOOTER_HEIGHT = 32 
+            const MARGIN_SCALE = 0.1;
+            const MIN_MARGIN = 24; 
+            
+            const resize = ()=>{
+                if(!((stage.width===window.innerWidth)&&(stage.height===window.innerHeight))) {
+                    stage.width = window.innerWidth;
+                    stage.height = window.innerHeight;
+                    let w = CLIP(stage.width,Info.W);
+                    let h = CLIP(stage.height-FOOTER_HEIGHT,Info.H-FOOTER_HEIGHT);
+                    h-=(h*MARGIN_SCALE<MIN_MARGIN)?MIN_MARGIN:(h*MARGIN_SCALE);
+                    w-=(w*MARGIN_SCALE<MIN_MARGIN)?MIN_MARGIN:(w*MARGIN_SCALE);
+                    if(w/Info.W>h/(Info.H-FOOTER_HEIGHT)) {
+                        const width = (h/(Info.H-FOOTER_HEIGHT))*Info.W;
+                        Object.assign(canvas.style,{
+                            left:((stage.width-width)>>1)+"px",
+                            top:(((stage.height-FOOTER_HEIGHT)-h)>>1)+"px",
+                            width:width+"px",
+                            height:h+"px"
+                        });
+                    }
+                    else {
+                        const height = (w/Info.W)*(Info.H-FOOTER_HEIGHT);
+                        Object.assign(canvas.style,{
+                            left:((stage.width-w)>>1)+"px",
+                            top:(((stage.height-FOOTER_HEIGHT)-height)>>1)+"px",
+                            width:w+"px",
+                            height:height+"px",
+                        });
+                    }
+                }
+            }
+            
+            setInterval((e)=>{
+                resize();
+            },33);
+            resize();
+        
+        }
+        
+        IMAGE.onload = ()=>{
+            Info.W = IMAGE.naturalWidth;
+            Info.H = IMAGE.naturalHeight;
+            
+            console.log(Info.W/8.0,Info.H/8.0)
+            
+            fetch(DEFAULT_URL).then((response)=>{
+                if(response.ok) return response.arrayBuffer();
+                else throw new Error(response.status);
+            }).then((arrayBuffer)=>{
+                initialize(arrayBuffer);
+            }).catch((e)=>{});
+        }
+        IMAGE.src = DEFAULT_URL;
+        
+    </script>
+</body>
+</html>
